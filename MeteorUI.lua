@@ -783,11 +783,11 @@ local function makePanel(window, parent, o)
 
 	local panel = create("Frame", {
 		Name = name, BackgroundColor3 = theme.Background,
-		BackgroundTransparency = o.AccentBg and 1 or 0.03,
+		BackgroundTransparency = o.AccentBg and 0 or 0.03,
 		Position = o.Position, Size = UDim2.fromOffset(width, 34), ClipsDescendants = true,
 	}, parent)
 	round(panel, 6)
-	if not o.AccentBg then stroke(panel) end
+	stroke(panel)
 
 	local header = create("TextButton", {
 		BackgroundColor3 = theme.Background, BackgroundTransparency = o.AccentBg and 0 or 1,
@@ -944,8 +944,8 @@ function Category:CreateModule(opts)
 			color = Library.Theme.Accent:Lerp(Color3.new(1, 1, 1), 0.35)
 			transparency = 0.25
 		else
-			color = Library.Theme.Module
-			transparency = 0.45
+			color = Color3.new(1, 1, 1)
+			transparency = 0.9
 		end
 		if hovering then transparency = math.max(transparency - 0.12, 0) end
 		bar.Visible = on
