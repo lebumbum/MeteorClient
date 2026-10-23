@@ -576,6 +576,12 @@ function Elements:CreateKeybind(opts)
 		end
 	end)
 
+	if window then
+		btn.MouseEnter:Connect(function() window:_showTip("Right click to clear") end)
+		btn.MouseLeave:Connect(function() window:_hideTip() end)
+		btn.MouseMoved:Connect(function() window:_moveTip() end)
+	end
+
 	btn.MouseButton2Click:Connect(function()
 		if Library._captureCancel then Library._captureCancel() end
 		Library._capture, Library._captureCancel = nil, nil
