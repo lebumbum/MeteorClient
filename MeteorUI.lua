@@ -567,13 +567,20 @@ function Elements:CreateKeybind(opts)
 		Library._captureCancel = function() listening = false; render() end
 		Library._capture = function(keyCode)
 			listening = false
-			if keyCode == Enum.KeyCode.Backspace then
+			if keyCode == Enum.KeyCode.Backspace or keyCode == Enum.KeyCode.Delete then
 				el:Set("None")
 			elseif keyCode ~= Enum.KeyCode.Escape then
 				el:Set(keyCode.Name)
 			end
 			render()
 		end
+	end)
+
+	btn.MouseButton2Click:Connect(function()
+		if Library._captureCancel then Library._captureCancel() end
+		Library._capture, Library._captureCancel = nil, nil
+		listening = false
+		el:Set("None")
 	end)
 
 	Library._keybinds[el] = true
