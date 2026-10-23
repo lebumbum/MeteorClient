@@ -35,7 +35,22 @@ local Library = {
 	},
 	BaseAccent = Color3.fromRGB(145, 61, 226),
 	Rainbow = false,
+	ModuleStyle = "Actiono",
+	ModuleStyleOrder = { "Actiono", "Leyield" },
+	ModuleStyles = {
+		Actiono = {
+			Panel = 0.2, Solid = true, Side = 4, Top = 4, Bot = 4, Gap = 3, ModGap = 2, Round = 4, SetRound = 4,
+			Off = "Module", OffT = 0.35, OnMix = 0.45, OnT = 0.2, HoverMix = 0.05, HoverT = 0.1,
+			Setting = "Setting", SettingT = 0.25, Dim = "TextDim", BarInset = 6, BarRound = 2,
+		},
+		Leyield = {
+			Panel = 0.03, Solid = false, Side = 0, Top = 0, Bot = 5, Gap = 1, ModGap = 0, Round = 0, SetRound = 0,
+			Off = Color3.fromRGB(24, 24, 32), OffT = 0, OnMix = 0.3, OnT = 0, HoverMix = 0.05, HoverT = 0,
+			Setting = Color3.fromRGB(18, 18, 24), SettingT = 0, Dim = Color3.fromRGB(148, 148, 164), BarInset = 0, BarRound = 0,
+		},
+	},
 	_conns = {},
+	_styleFns = {},
 	_accent = {},
 	_windows = {},
 	_keybinds = {},
@@ -99,6 +114,30 @@ local function bindAccent(fn, inst)
 		inst.Destroying:Connect(function() Library._accent[fn] = nil end)
 	end
 	return fn
+end
+
+local function style()
+	return Library.ModuleStyles[Library.ModuleStyle] or Library.ModuleStyles.Actiono
+end
+
+local function themed(v)
+	if type(v) == "string" then return Library.Theme[v] end
+	return v
+end
+
+local function bindStyle(fn, inst)
+	fn()
+	Library._styleFns[fn] = true
+	if inst then
+		inst.Destroying:Connect(function() Library._styleFns[fn] = nil end)
+	end
+	return fn
+end
+
+function Library:SetModuleStyle(name)
+	if not self.ModuleStyles[name] then return end
+	self.ModuleStyle = name
+	for fn in pairs(self._styleFns) do pcall(fn) end
 end
 
 function Library:_applyAccent(color)
@@ -778,24 +817,23 @@ end
 local function makePanel(window, parent, o)
 	local theme = Library.Theme
 	local name, width = o.Name, o.Width
-	local sidePad = o.SidePad or 0
-	local topPad, botPad = o.TopPad or 0, o.BotPad or 0
+	local isCat = o.Category
+	local sidePad, topPad, botPad = o.SidePad or 0, o.TopPad or 0, o.BotPad or 0
 
 	local panel = create("Frame", {
-		Name = name, BackgroundColor3 = theme.Background,
-		BackgroundTransparency = o.AccentBg and 0.2 or 0.03,
+		Name = name, BackgroundColor3 = theme.Background, BackgroundTransparency = 0.03,
 		Position = o.Position, Size = UDim2.fromOffset(width, 34), ClipsDescendants = true,
 	}, parent)
 	round(panel, 6)
 	stroke(panel)
 
 	local header = create("TextButton", {
-		BackgroundColor3 = theme.Background, BackgroundTransparency = o.AccentBg and 0 or 1,
-		Size = UDim2.new(1, 0, 0, 34),
+		BackgroundColor3 = theme.Background, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 34),
 	}, panel)
-	if o.AccentBg then
+	local headerCorner
+	if isCat then
 		bindAccent(function(c) header.BackgroundColor3 = c end, header)
-		round(header, 6)
+		headerCorner = round(header, 6)
 	end
 	create("TextLabel", {
 		Text = name, Font = Library.BoldFont, TextSize = 14, Position = UDim2.fromOffset(12, 0),
@@ -805,13 +843,11 @@ local function makePanel(window, parent, o)
 		Text = "-", TextColor3 = theme.TextDim, TextSize = 16, AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -12, 0, 0), Size = UDim2.fromOffset(12, 34),
 	}, header)
-	if not o.AccentBg then
-		local line = create("Frame", { Position = UDim2.new(0, 0, 1, -2), Size = UDim2.new(1, 0, 0, 2) }, header)
-		create("UIGradient", {
-			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.8) }),
-		}, line)
-		bindAccent(function(c) line.BackgroundColor3 = c end, line)
-	end
+	local line = create("Frame", { Position = UDim2.new(0, 0, 1, -2), Size = UDim2.new(1, 0, 0, 2) }, header)
+	create("UIGradient", {
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.8) }),
+	}, line)
+	bindAccent(function(c) line.BackgroundColor3 = c end, line)
 
 	local body = create("ScrollingFrame", {
 		BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 0),
@@ -819,7 +855,7 @@ local function makePanel(window, parent, o)
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 	}, panel)
 	bindAccent(function(c) body.ScrollBarImageColor3 = c end, body)
-	pad(body, sidePad, sidePad, topPad, botPad)
+	local bodyPad = pad(body, sidePad, sidePad, topPad, botPad)
 	local layout = create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, o.Gap or 0) }, body)
 
 	local p = { Panel = panel, Body = body, Collapsed = false }
@@ -834,6 +870,21 @@ local function makePanel(window, parent, o)
 		panel.Size = UDim2.fromOffset(width, 34 + h)
 	end
 	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize)
+
+	if isCat then
+		bindStyle(function()
+			local S = style()
+			sidePad, topPad, botPad = S.Side, S.Top, S.Bot
+			panel.BackgroundTransparency = S.Panel
+			header.BackgroundTransparency = S.Solid and 0 or 1
+			headerCorner.CornerRadius = UDim.new(0, S.Solid and 6 or 0)
+			line.Visible = not S.Solid
+			bodyPad.PaddingLeft, bodyPad.PaddingRight = UDim.new(0, sidePad), UDim.new(0, sidePad)
+			bodyPad.PaddingTop, bodyPad.PaddingBottom = UDim.new(0, topPad), UDim.new(0, botPad)
+			layout.Padding = UDim.new(0, S.Gap)
+			resize()
+		end, panel)
+	end
 
 	function p.SetCollapsed(c)
 		p.Collapsed = c and true or false
@@ -898,16 +949,12 @@ function Category:CreateModule(opts)
 		BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = nextOrder(self),
 	}, self._container)
-	create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2) }, wrapper)
+	local wrapLayout = create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder }, wrapper)
 
-	local head = create("TextButton", {
-		BackgroundColor3 = theme.Module, BackgroundTransparency = 0.55, Size = UDim2.new(1, 0, 0, 30), LayoutOrder = 1,
-	}, wrapper)
-	round(head, 4)
-	local bar = create("Frame", {
-		BackgroundColor3 = Color3.new(1, 1, 1), Position = UDim2.fromOffset(0, 6), Size = UDim2.new(0, 3, 1, -12), Visible = false,
-	}, head)
-	round(bar, 2)
+	local head = create("TextButton", { BackgroundColor3 = theme.Module, Size = UDim2.new(1, 0, 0, 30), LayoutOrder = 1 }, wrapper)
+	local headRound = round(head, 4)
+	local bar = create("Frame", { Visible = false }, head)
+	local barRound = round(bar, 2)
 	local title = create("TextLabel", {
 		Text = mod.Name, Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -44, 1, 0),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -926,38 +973,52 @@ function Category:CreateModule(opts)
 	end
 
 	local settings = create("Frame", {
-		BackgroundColor3 = theme.Setting, BackgroundTransparency = 0.2, Size = UDim2.new(1, 0, 0, 0),
+		BackgroundColor3 = theme.Setting, Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y, Visible = false, LayoutOrder = 2,
 	}, wrapper)
-	round(settings, 4)
+	local settingsRound = round(settings, 4)
 	create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) }, settings)
 	pad(settings, 12, 10, 6, 8)
 	mod._container = settings
 
 	local hovering = false
 	local function render(animate)
+		local S = style()
 		local on = mod.CurrentValue
-		local color, transparency
+		local color, transparency = themed(S.Off), S.OffT
 		if on then
-			color = Library.Theme.Accent:Lerp(Color3.new(1, 1, 1), 0.35)
-			transparency = 0.25
-		else
-			color = Color3.fromRGB(30, 30, 40)
-			transparency = 0.45
+			color = color:Lerp(Library.Theme.Accent, S.OnMix)
+			transparency = S.OnT
 		end
-		if hovering then transparency = math.max(transparency - 0.12, 0) end
+		if hovering then
+			color = color:Lerp(Color3.new(1, 1, 1), S.HoverMix)
+			transparency = math.max(transparency - S.HoverT, 0)
+		end
 		bar.Visible = on
-		title.TextColor3 = on and Library.Theme.Text or Library.Theme.TextDim
+		bar.BackgroundColor3 = Library.Theme.Accent
+		title.TextColor3 = on and Library.Theme.Text or themed(S.Dim)
 		if animate then
 			tween(head, { BackgroundColor3 = color, BackgroundTransparency = transparency })
 		else
 			head.BackgroundColor3 = color
 			head.BackgroundTransparency = transparency
 		end
-		local dotColor = settings.Visible and Color3.new(1, 1, 1) or Library.Theme.TextDim
+		local dotColor = settings.Visible and Library.Theme.Accent or themed(S.Dim)
 		for _, d in ipairs(dots) do d.BackgroundColor3 = dotColor end
 	end
 	bindAccent(function() render(false) end, wrapper)
+	bindStyle(function()
+		local S = style()
+		wrapLayout.Padding = UDim.new(0, S.ModGap)
+		headRound.CornerRadius = UDim.new(0, S.Round)
+		bar.Position = UDim2.fromOffset(0, S.BarInset)
+		bar.Size = UDim2.new(0, 3, 1, -S.BarInset * 2)
+		barRound.CornerRadius = UDim.new(0, S.BarRound)
+		settings.BackgroundColor3 = themed(S.Setting)
+		settings.BackgroundTransparency = S.SettingT
+		settingsRound.CornerRadius = UDim.new(0, S.SetRound)
+		render(false)
+	end, wrapper)
 
 	local function setOpen(open)
 		settings.Visible = open
@@ -1207,8 +1268,7 @@ function Window:CreateCategory(name)
 	local y = 66 + math.floor(idx / perRow) * 44
 
 	local p = makePanel(self, self._modulesScreen, {
-		Name = name, Position = UDim2.fromOffset(x, y), Width = width, Draggable = true, AccentBg = true,
-		SidePad = 4, TopPad = 4, BotPad = 4, Gap = 3,
+		Name = name, Position = UDim2.fromOffset(x, y), Width = width, Draggable = true, Category = true,
 	})
 	local cat = setmetatable({ Name = name, _window = self, _container = p.Body, _order = 0, Panel = p.Panel, _p = p }, Category)
 	table.insert(self.Categories, cat)
@@ -1495,6 +1555,10 @@ function Window:_buildGuiPage()
 			if c and accent then accent:Set(c) end
 		end,
 	})
+	page:CreateDropdown({
+		Name = "Modules Style", Options = Library.ModuleStyleOrder, CurrentOption = Library.ModuleStyle, Flag = "gui:ModuleStyle",
+		Callback = function(o) Library:SetModuleStyle(o[1]) end,
+	})
 	accent = page:CreateColorPicker({
 		Name = "Color", Color = Library.Theme.Accent, Flag = "gui:Accent",
 		Callback = function(c) Library:SetAccent(c) end,
@@ -1537,6 +1601,7 @@ function Library:Destroy()
 	for _, c in ipairs(self._conns) do pcall(function() c:Disconnect() end) end
 	for _, w in ipairs(self._windows) do w:Destroy() end
 	self._conns, self._accent, self._windows, self._keybinds = {}, {}, {}, {}
+	self._styleFns = {}
 	self.Flags, self.Lists = {}, {}
 	self._inputInit, self._rainbowConn, self._capture, self._captureCancel = nil, nil, nil, nil
 	self.Rainbow = false
