@@ -783,11 +783,11 @@ local function makePanel(window, parent, o)
 
 	local panel = create("Frame", {
 		Name = name, BackgroundColor3 = theme.Background,
-		BackgroundTransparency = o.AccentBg and 0 or 0.03,
+		BackgroundTransparency = o.AccentBg and 1 or 0.03,
 		Position = o.Position, Size = UDim2.fromOffset(width, 34), ClipsDescendants = true,
 	}, parent)
 	round(panel, 6)
-	stroke(panel)
+	if not o.AccentBg then stroke(panel) end
 
 	local header = create("TextButton", {
 		BackgroundColor3 = theme.Background, BackgroundTransparency = o.AccentBg and 0 or 1,
@@ -796,13 +796,7 @@ local function makePanel(window, parent, o)
 	local squareFill
 	if o.AccentBg then
 		bindAccent(function(c) header.BackgroundColor3 = c end, header)
-		-- UICorner does not clip children, so round the header itself and
-		-- square off only its bottom edge with a filler while expanded.
 		round(header, 6)
-		squareFill = create("Frame", {
-			AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 8),
-		}, header)
-		bindAccent(function(c) squareFill.BackgroundColor3 = c end, squareFill)
 	end
 	create("TextLabel", {
 		Text = name, Font = Library.BoldFont, TextSize = 14, Position = UDim2.fromOffset(12, 0),
@@ -950,8 +944,8 @@ function Category:CreateModule(opts)
 			color = Library.Theme.Accent:Lerp(Color3.new(1, 1, 1), 0.35)
 			transparency = 0.25
 		else
-			color = Color3.fromRGB(75, 75, 92)
-			transparency = 0.55
+			color = Library.Theme.Module
+			transparency = 0.45
 		end
 		if hovering then transparency = math.max(transparency - 0.12, 0) end
 		bar.Visible = on
@@ -1554,6 +1548,8 @@ function Library:Destroy()
 	self.Rainbow = false
 end
 
+-- Only one copy can be active: running the script again unloads the previous run
+-- (disables its modules, runs its unload hooks, removes its GUI) before this one starts.
 do
 	local genv = (type(getgenv) == "function" and getgenv()) or _G
 	local old = genv.__MeteorUI_Active
