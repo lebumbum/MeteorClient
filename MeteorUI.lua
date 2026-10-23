@@ -945,7 +945,7 @@ function Category:CreateModule(opts)
 			transparency = 0.25
 		else
 			color = Color3.new(1, 1, 1)
-			transparency = 0.9
+			transparency = 0.4
 		end
 		if hovering then transparency = math.max(transparency - 0.12, 0) end
 		bar.Visible = on
