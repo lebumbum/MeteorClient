@@ -783,7 +783,7 @@ local function makePanel(window, parent, o)
 
 	local panel = create("Frame", {
 		Name = name, BackgroundColor3 = theme.Background,
-		BackgroundTransparency = o.AccentBg and 0.35 or 0.03,
+		BackgroundTransparency = o.AccentBg and 0.2 or 0.03,
 		Position = o.Position, Size = UDim2.fromOffset(width, 34), ClipsDescendants = true,
 	}, parent)
 	round(panel, 6)
@@ -793,7 +793,6 @@ local function makePanel(window, parent, o)
 		BackgroundColor3 = theme.Background, BackgroundTransparency = o.AccentBg and 0 or 1,
 		Size = UDim2.new(1, 0, 0, 34),
 	}, panel)
-	local squareFill
 	if o.AccentBg then
 		bindAccent(function(c) header.BackgroundColor3 = c end, header)
 		round(header, 6)
@@ -840,7 +839,6 @@ local function makePanel(window, parent, o)
 		p.Collapsed = c and true or false
 		body.Visible = not p.Collapsed
 		sign.Text = p.Collapsed and "+" or "-"
-		if squareFill then squareFill.Visible = not p.Collapsed end
 		resize()
 	end
 
@@ -1519,15 +1517,11 @@ function Window:Destroy()
 	if self.Gui then self.Gui:Destroy() end
 end
 
--- Register a function that runs when the library is unloaded (Unload GUI button
--- or the script being run again). Use it to stop your own loops and connections.
 function Library:OnUnload(fn)
 	if type(fn) == "function" then table.insert(self._unloadHooks, fn) end
 end
 
 function Library:Destroy()
-	-- Keep the current settings on disk, then turn every enabled module off
-	-- (without saving or notifying) so the old script's features actually stop.
 	for _, w in ipairs(self._windows) do
 		if w.Config.Enabled and not w._loading then pcall(function() w:SaveConfiguration() end) end
 		w._loading = true
@@ -1548,8 +1542,6 @@ function Library:Destroy()
 	self.Rainbow = false
 end
 
--- Only one copy can be active: running the script again unloads the previous run
--- (disables its modules, runs its unload hooks, removes its GUI) before this one starts.
 do
 	local genv = (type(getgenv) == "function" and getgenv()) or _G
 	local old = genv.__MeteorUI_Active
