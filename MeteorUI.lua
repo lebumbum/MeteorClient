@@ -792,8 +792,16 @@ local function makePanel(window, parent, o)
 		BackgroundColor3 = theme.Background, BackgroundTransparency = o.AccentBg and 0 or 1,
 		Size = UDim2.new(1, 0, 0, 34),
 	}, panel)
+	local squareFill
 	if o.AccentBg then
 		bindAccent(function(c) header.BackgroundColor3 = c end, header)
+		-- UICorner does not clip children, so round the header itself and
+		-- square off only its bottom edge with a filler while expanded.
+		round(header, 6)
+		squareFill = create("Frame", {
+			AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 8),
+		}, header)
+		bindAccent(function(c) squareFill.BackgroundColor3 = c end, squareFill)
 	end
 	create("TextLabel", {
 		Text = name, Font = Library.BoldFont, TextSize = 14, Position = UDim2.fromOffset(12, 0),
@@ -837,6 +845,7 @@ local function makePanel(window, parent, o)
 		p.Collapsed = c and true or false
 		body.Visible = not p.Collapsed
 		sign.Text = p.Collapsed and "+" or "-"
+		if squareFill then squareFill.Visible = not p.Collapsed end
 		resize()
 	end
 
@@ -940,8 +949,8 @@ function Category:CreateModule(opts)
 			color = Library.Theme.Accent:Lerp(Color3.new(1, 1, 1), 0.35)
 			transparency = 0.25
 		else
-			color = Library.Theme.Module
-			transparency = 0.55
+			color = Library.Theme.Accent
+			transparency = 0.8
 		end
 		if hovering then transparency = math.max(transparency - 0.12, 0) end
 		bar.Visible = on
