@@ -781,20 +781,20 @@ local function makePanel(window, parent, o)
 	local topPad, botPad = o.TopPad or 0, o.BotPad or 0
 
 	local panel = create("Frame", {
-		Name = name, BackgroundColor3 = o.AccentBg and theme.Accent or theme.Background,
-		BackgroundTransparency = o.AccentBg and 0.05 or 0.03,
+		Name = name, BackgroundColor3 = theme.Background,
+		BackgroundTransparency = o.AccentBg and 0 or 0.03,
 		Position = o.Position, Size = UDim2.fromOffset(width, 34), ClipsDescendants = true,
 	}, parent)
 	round(panel, 6)
 	stroke(panel)
-	if o.AccentBg then
-		bindAccent(function(c) panel.BackgroundColor3 = c end, panel)
-	end
 
 	local header = create("TextButton", {
 		BackgroundColor3 = theme.Background, BackgroundTransparency = o.AccentBg and 0 or 1,
 		Size = UDim2.new(1, 0, 0, 34),
 	}, panel)
+	if o.AccentBg then
+		bindAccent(function(c) header.BackgroundColor3 = c end, header)
+	end
 	create("TextLabel", {
 		Text = name, Font = Library.BoldFont, TextSize = 14, Position = UDim2.fromOffset(12, 0),
 		Size = UDim2.new(1, -40, 1, 0), TextXAlignment = Enum.TextXAlignment.Left,
@@ -803,22 +803,20 @@ local function makePanel(window, parent, o)
 		Text = "-", TextColor3 = theme.TextDim, TextSize = 16, AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -12, 0, 0), Size = UDim2.fromOffset(12, 34),
 	}, header)
-	local line = create("Frame", { Position = UDim2.new(0, 0, 1, -2), Size = UDim2.new(1, 0, 0, 2) }, header)
-	create("UIGradient", {
-		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.8) }),
-	}, line)
-	bindAccent(function(c) line.BackgroundColor3 = c end, line)
+	if not o.AccentBg then
+		local line = create("Frame", { Position = UDim2.new(0, 0, 1, -2), Size = UDim2.new(1, 0, 0, 2) }, header)
+		create("UIGradient", {
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.8) }),
+		}, line)
+		bindAccent(function(c) line.BackgroundColor3 = c end, line)
+	end
 
 	local body = create("ScrollingFrame", {
 		BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 0),
 		ScrollBarThickness = 2, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 	}, panel)
-	if o.AccentBg then
-		body.ScrollBarImageColor3 = Color3.new(1, 1, 1)
-	else
-		bindAccent(function(c) body.ScrollBarImageColor3 = c end, body)
-	end
+	bindAccent(function(c) body.ScrollBarImageColor3 = c end, body)
 	pad(body, sidePad, sidePad, topPad, botPad)
 	local layout = create("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, o.Gap or 0) }, body)
 
@@ -969,7 +967,6 @@ function Category:CreateModule(opts)
 		if v == self.CurrentValue then return end
 		self.CurrentValue = v
 		render(true)
-		window:_hudSet(self, v)
 		if not silent then
 			emit(window, opts.Callback, v)
 			if window.ToggleNotify and not window._loading then
@@ -982,7 +979,6 @@ function Category:CreateModule(opts)
 	function mod:Expand(open) setOpen(open ~= false) end
 	function mod:Destroy()
 		if Library.Flags[flag] == self then Library.Flags[flag] = nil end
-		window:_hudSet(self, false)
 		wrapper:Destroy()
 	end
 
@@ -1011,7 +1007,6 @@ function Category:CreateModule(opts)
 	if opts.CurrentValue == true or opts.Enabled == true then
 		mod.CurrentValue = true
 		render(false)
-		window:_hudSet(mod, true)
 		safeCall(opts.Callback, true)
 	end
 	return mod
@@ -1035,7 +1030,6 @@ function Library:CreateWindow(opts)
 		Categories = {},
 		_pages = {},
 		_pageCount = 0,
-		_hud = {},
 		_z = 1,
 		_saveQueued = false,
 		_loading = false,
@@ -1075,14 +1069,6 @@ function Library:CreateWindow(opts)
 	}, window.Nav)
 	bindAccent(function(c) navTitle.TextColor3 = c end, navTitle)
 
-	window.Hud = create("Frame", {
-		BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 8),
-		Size = UDim2.new(), AutomaticSize = Enum.AutomaticSize.XY,
-	}, window.Gui)
-	create("UIListLayout", {
-		SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 1),
-	}, window.Hud)
-
 	window.NotifHolder = create("Frame", {
 		BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -12, 1, -12),
 		Size = UDim2.new(0, 260, 1, -24), ZIndex = 50,
@@ -1121,8 +1107,6 @@ end
 
 function Window:Toggle() self:SetVisible(not self.Visible) end
 
-function Window:SetHudVisible(v) self.Hud.Visible = v and true or false end
-
 function Window:SetDim(v)
 	self._dim = v and true or false
 	self.Backdrop.Visible = self._dim
@@ -1140,23 +1124,6 @@ function Window:_moveTip()
 	if not self.Tip.Visible then return end
 	local m = UIS:GetMouseLocation()
 	self.Tip.Position = UDim2.fromOffset(m.X + 14, m.Y + 16)
-end
-
-function Window:_hudSet(mod, on)
-	local label = self._hud[mod]
-	if on and not label then
-		local w = TextService:GetTextSize(mod.Name, 13, Library.Font, Vector2.new(500, 30)).X
-		label = create("TextLabel", {
-			Text = mod.Name, BackgroundTransparency = 0.45, BackgroundColor3 = Color3.new(0, 0, 0),
-			Size = UDim2.new(), AutomaticSize = Enum.AutomaticSize.XY, LayoutOrder = -math.floor(w),
-		}, self.Hud)
-		pad(label, 7, 7, 2, 2)
-		bindAccent(function(c) label.TextColor3 = c end, label)
-		self._hud[mod] = label
-	elseif not on and label then
-		label:Destroy()
-		self._hud[mod] = nil
-	end
 end
 
 function Window:Notify(opts)
@@ -1526,13 +1493,12 @@ function Window:_buildGuiPage()
 		end,
 	})
 	accent = page:CreateColorPicker({
-		Name = "Accent color", Color = Library.Theme.Accent, Flag = "gui:Accent",
+		Name = "Color", Color = Library.Theme.Accent, Flag = "gui:Accent",
 		Callback = function(c) Library:SetAccent(c) end,
 	})
-	page:CreateToggle({ Name = "Rainbow accent", CurrentValue = false, Flag = "gui:Rainbow", Callback = function(v) Library:SetRainbow(v) end })
+	page:CreateToggle({ Name = "Rainbow", CurrentValue = false, Flag = "gui:Rainbow", Callback = function(v) Library:SetRainbow(v) end })
 
 	page:CreateSection("Interface")
-	page:CreateToggle({ Name = "Active modules list", CurrentValue = true, Flag = "gui:ArrayList", Callback = function(v) window:SetHudVisible(v) end })
 	page:CreateToggle({ Name = "Toggle notifications", CurrentValue = false, Flag = "gui:ToggleNotify", Callback = function(v) window.ToggleNotify = v end })
 	page:CreateToggle({ Name = "Dim background", CurrentValue = window._dim, Flag = "gui:Dim", Callback = function(v) window:SetDim(v) end })
 	page:CreateKeybind({
