@@ -39,6 +39,7 @@ local Library = {
 	_accent = {},
 	_windows = {},
 	_keybinds = {},
+	_unloadHooks = {},
 }
 
 local function connect(signal, fn)
@@ -949,8 +950,8 @@ function Category:CreateModule(opts)
 			color = Library.Theme.Accent:Lerp(Color3.new(1, 1, 1), 0.35)
 			transparency = 0.25
 		else
-			color = Library.Theme.Accent
-			transparency = 0.8
+			color = Color3.fromRGB(75, 75, 92)
+			transparency = 0.55
 		end
 		if hovering then transparency = math.max(transparency - 0.12, 0) end
 		bar.Visible = on
@@ -1434,6 +1435,7 @@ function Window:_queueSave()
 	self._saveQueued = true
 	task.delay(0.6, function()
 		self._saveQueued = false
+		if self._destroyed then return end
 		self:SaveConfiguration()
 	end)
 end
@@ -1519,16 +1521,46 @@ function Window:_buildGuiPage()
 end
 
 function Window:Destroy()
+	self._destroyed = true
 	if self.Gui then self.Gui:Destroy() end
 end
 
+-- Register a function that runs when the library is unloaded (Unload GUI button
+-- or the script being run again). Use it to stop your own loops and connections.
+function Library:OnUnload(fn)
+	if type(fn) == "function" then table.insert(self._unloadHooks, fn) end
+end
+
 function Library:Destroy()
+	-- Keep the current settings on disk, then turn every enabled module off
+	-- (without saving or notifying) so the old script's features actually stop.
+	for _, w in ipairs(self._windows) do
+		if w.Config.Enabled and not w._loading then pcall(function() w:SaveConfiguration() end) end
+		w._loading = true
+	end
+	local mods = {}
+	for _, el in pairs(self.Flags) do
+		if el.Type == "Module" and el.CurrentValue then table.insert(mods, el) end
+	end
+	for _, m in ipairs(mods) do pcall(function() m:Set(false) end) end
+	for _, fn in ipairs(self._unloadHooks) do pcall(fn) end
+	self._unloadHooks = {}
+
 	for _, c in ipairs(self._conns) do pcall(function() c:Disconnect() end) end
 	for _, w in ipairs(self._windows) do w:Destroy() end
 	self._conns, self._accent, self._windows, self._keybinds = {}, {}, {}, {}
 	self.Flags, self.Lists = {}, {}
 	self._inputInit, self._rainbowConn, self._capture, self._captureCancel = nil, nil, nil, nil
 	self.Rainbow = false
+end
+
+do
+	local genv = (type(getgenv) == "function" and getgenv()) or _G
+	local old = genv.__MeteorUI_Active
+	if old and old ~= Library and type(old.Destroy) == "function" then
+		pcall(function() old:Destroy() end)
+	end
+	genv.__MeteorUI_Active = Library
 end
 
 return Library
